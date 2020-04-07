@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__
+*.pyc
+.vscode
+log.txt
+bytetest.py
+dec_demo.py
+.Rhistory
+.pylintrc
+database_files
+*.code-workspace

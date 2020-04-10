@@ -1,5 +1,16 @@
 from random import choice, randint, sample, seed
-#basic tree
+
+# My implementation of a bplus tree for database entry indexing
+
+
+    ### Node implementation for the bplus tree ###
+# Takes the max node zize as a parameter on creation #
+# The leaf nodes keep track of the left and right neighbors #
+# Internal nodes will have left and right set to None #
+# Keys are the values of the entries are indexed on and 
+# Rids correspond to the id of a single entry #
+# In the internal nodes, the rids list will be a list of children #
+
 
 class Node():
     
@@ -14,7 +25,8 @@ class Node():
     @property
     def is_leaf(self):
         return self.__is_leaf
-
+    
+    # Sets the is_leaf and will change left and right to none if is_leaf is set to none
     @is_leaf.setter
     def is_leaf(self, is_Leaf):
         if not is_Leaf:
@@ -38,6 +50,8 @@ class Node():
     def right(self, right):
         self.__right = right
 
+    ### adds a key and rid pair to a node ###
+    # compares key value to determine were to add within node
     def add(self, key, rid):
         if not self.keys: #if keys is empty (root)
             self.keys.append(key)
@@ -61,7 +75,9 @@ class Node():
                 self.rids.append(rid)
                 break
         
-    
+    ### removes a key and rid pair from a node ###
+    # goes through the keys of the node and if it finds the key, it will traverse 
+    # the corresponding rids until it finds the right rid or not
     def remove(self, key, rid):
 
         for i, item in enumerate(self.keys):
@@ -78,6 +94,7 @@ class Node():
                 break
         pass      
 
+    ### reorders the keys values of the node after a tree balancing ###
     def update_keys(self):
         if self.is_leaf:
             print("HMMMMM")
@@ -89,9 +106,11 @@ class Node():
                 if self.keys[i-1] != self.rids[i].keys[0]:
                     self.keys[i-1] = self.rids[i].keys[0]
 
+
+    ### splits a node if it becomes too full by createing a left and right child node ###
+    # and moves the keys and rids of the calling node to the new nodes. 
+    # Then sets left and right as the children of the calling node and changes is_leaf to false.
     def split(self):
-    #split and send to child nodes
-        #left and right inherit number of objects
         left = Node(self.max_node_size) 
         right = Node(self.max_node_size)
         mid = (self.max_node_size + 1)//2
@@ -127,15 +146,15 @@ class Node():
 
             if self.right != None:
                 self.right.left = right
-            
-
 
         self.rids = [left, right]
         self.is_leaf = False
 
+    # node is full if it has more than max node number
     def is_full(self):
         return len(self.keys) == self.max_node_size + 1
 
+    # recursive function to print out a node and its descendents
     def key_helper(self, bool, ret=""):
         if bool:
             for val in bool:
@@ -167,21 +186,23 @@ class Node():
 
         return ret
 
-
+    # calls key_helper to generate a string of the current node and all its children
     def get_keys(self):
         bool = []
         to_print = self.key_helper(bool)
         return to_print
             
+### Implementation of the Bplus tree ###
+    class BPlusTree(object): 
 
-class BPlusTree(object):
-
+    # takes an int for max node size and creates a root node in initilization
     def __init__(self, max_node_size = 4):
         self.root = Node(max_node_size)
         self.left = self.root
         self.right = self.root
-
-    def _find(self, node, key): #return index of key and its rids
+        
+    # internal function that returns the index of key and its rids
+    def _find(self, node, key): 
         
         for i, item in enumerate(node.keys):
             if key < item:
@@ -192,9 +213,15 @@ class BPlusTree(object):
         else:
             return None, i
 
-
-    def find(self, node, key): #return index of key and its rids
+    # function that finds and returns index of key and its rids
+    def find(self, node, key): 
         return self._find(node, key)
+
+    ### merges a child node with its parent (after a split) ###
+    # parents is a list of nodes and index of child node (allows traversal up the tree)
+    # child node is a node that has just split
+    # iterates through the parent's keys and adds the child key to them
+    # if this makes the parent full, it will call split on the parent node
 
     def _merge(self, parents, child):
 
@@ -230,10 +257,13 @@ class BPlusTree(object):
 
             parent.split()
             if parents and not parents[-1][0].is_full():
-                # print("At merge")
                 self._merge(parents, parent)
 
-         
+    ### inserts a key and rid pair to the tree ###
+    # finds to right leaf node for the key provided
+    # if the key exists it will add rid to the key's bucket
+    # otherwise it will add the key and rid pair to node
+    # and will call split if the node is full and merge it with it's parent
         
     def insert(self, key, rid):
 
@@ -270,6 +300,10 @@ class BPlusTree(object):
             if parents and not parents[-1][0].is_full():
                 self._merge(parents, child)
 
+    ### removes a key and rid pair from the tree ###
+    # If removing the rid results in the key having no corresponding rids
+    # It will delete the key from the node 
+    # rebalances if the node has a # of keys less then half the max_node_size after removal
     def remove(self, key, rid):
 
         parents = []
@@ -289,6 +323,8 @@ class BPlusTree(object):
 
         return None
 
+    ### Finds node by rid by traversing the leaf nodes ###
+    # useful for deleting rids
     def find_by_rid(self, rid):
 
         current_node = self.left
@@ -305,13 +341,17 @@ class BPlusTree(object):
             
         return key
         
+    ### Balances the the tree after a key is removes ###
+    # parents is a list of nodes and index of child node (allows traversal up the tree)
+    # child node is a node that has just had a key removed resulting in less then max_node_num/2 keys
+    # finds the left sibling of the child if the child is not the rightmost node of the parent
+    # will combine or borrow from neighbor depending of the # of keys in neighbor node
 
     def _balance(self, parents, child):
 
         if parents:
             parent, index = parents.pop()
         else:
-            # print("EHHHHHHH")
             return None
 
         sibling_index = index
@@ -352,7 +392,10 @@ class BPlusTree(object):
 
         else:
             self.share(indexes, child, sibling, parent, flags)
-    
+    ### helper function for balancing the combines two nodes ###
+    # called if the sibling has less than or equal to (max node size + 1)/2
+    # moves all the sibling keys to the child keys and updates the parents keys if needed
+
     def consolidate(self, indexes, child, sibling, parent, flags):
         index, sibling_index = indexes
         to_the_left, is_Leafs = flags
@@ -395,6 +438,10 @@ class BPlusTree(object):
 
         if parent.rids[0].is_leaf:
             parent.update_keys()
+    ### helper function for balancing that moves keys from sibling ###
+    # called if the sibling has more than (max node size + 1)/2
+    # moves the sibling keys to the child keys until child has max_node_size/2 keys or more
+    # will updates the parents keys if needed
 
     def share(self, indexes, child, sibling, parent, flags):
         index, sibling_index = indexes
@@ -431,7 +478,9 @@ class BPlusTree(object):
 
         if not child.is_leaf and child.rids[0].is_leaf:
             child.update_keys()
-
+    ### search function by range ###
+    # finds the start of the range and then traverses the leaf nodes 
+    # returns a list of rids in the range given
     def bulk_search(self, start, end):
 
         current_node = self.root
@@ -455,6 +504,9 @@ class BPlusTree(object):
                     
         return rids_to_return
 
+    ### sum function by range ###
+    # finds the start of the range and then traverses the leaf nodes 
+    # returns sum of keys in the range given
     def sum_range(self, start, end):
         current_node = self.root
         while not current_node == None and not current_node.is_leaf:
@@ -477,7 +529,8 @@ class BPlusTree(object):
             current_node = current_node.right
                     
         return sum
-        
+    
+    ### returns all the leaf nodes as a list with root node at the beginning ###
     def get_all_leaves(self):
 
         current_node = self.left
@@ -490,6 +543,8 @@ class BPlusTree(object):
 
         return return_data
 
+    ### finds rids by keys ###
+    # returns  list of rids
     def get_rid(self, key):
         child = self.root
 
@@ -503,7 +558,7 @@ class BPlusTree(object):
 
         return None
     
-
+    ### gets tree in string form
     def get_keys(self):
         return self.root.get_keys()
 

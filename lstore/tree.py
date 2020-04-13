@@ -3,13 +3,13 @@ from random import choice, randint, sample, seed
 # My implementation of a bplus tree for database entry indexing
 
 
-    ### Node implementation for the bplus tree ###
-# Takes the max node zize as a parameter on creation #
-# The leaf nodes keep track of the left and right neighbors #
-# Internal nodes will have left and right set to None #
+### Node implementation for the bplus tree ###
+# Takes the max node size as a parameter on creation 
+# The leaf nodes keep track of the left and right neighbors 
+# Internal nodes will have left and right set to None 
 # Keys are the values of the entries are indexed on and 
-# Rids correspond to the id of a single entry #
-# In the internal nodes, the rids list will be a list of children #
+# RIDs correspond to the id of a single entry 
+# In the internal nodes, the rids list will be a list of children 
 
 
 class Node():

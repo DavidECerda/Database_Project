@@ -35,11 +35,12 @@ class Record:
 
 class Table:
 
-    """
-    :param name: string         #Table name
-    :param num_columns: int     #Number of Columns: all columns are integer
-    :param key: int             #Index of table key in columns
-    """
+    ### Initializer for Table class ###
+    # :param name: string           #Table name
+    # :param num_columns: int       #Number of Columns: all columns are integer
+    # :param key: int               #Index of table key in columns
+    # :param disk: DiskManager      #DiskManager class to read and write pages from and to disk
+    # :IV  
     def __init__(self, name, num_columns, key_col, disk):
         
         self.name = name
@@ -65,7 +66,6 @@ class Table:
         self.bp = BufferPool(self, disk)
         self.key_index = {} # key -> base MetaRecord PID # Don't export
         self.indices = Index(self) # Don't export
-        # self.indices.create_index(key_col)
 
         self.merging = 0
         self.updates_since_merge = 0
@@ -75,29 +75,32 @@ class Table:
         self.update_row_lock = threading.Lock()
         self.merge_schedule_lock = threading.Lock()
 
-
+    ### Manages read-write locks ###
+    # :param rid: int       #Unique identified for a entry or entry update
     def rw_locks(self, rid):
         if rid not in self._rw_locks:
             self._rw_locks[rid] = threading.Lock()
 
         return self._rw_locks[rid]
 
+    ### Manages delete locks ###
+    # :param rid: int       #Unique identified for a entry or entry update
     def del_locks(self, rid):
         if rid not in self._del_locks:
             self._del_locks[rid] = threading.Lock()
 
         return self._del_locks[rid]
 
+    ### Initiates a mergejob ###
+    # :brief    :       #
     def schedule_merge(self):
         with self.merge_schedule_lock:
             if self.merging <= 0:
                 def start_merge():
-                    # print('Starting merge')
                     job = MergeJob(self)
                     self.merging = 1
                     job.run()
                     self.merging = 0
-                    # print('Merged')
 
                 merge = threading.Thread(target=start_merge, args=())
                 merge.start()

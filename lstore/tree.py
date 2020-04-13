@@ -4,16 +4,16 @@ from random import choice, randint, sample, seed
 
 
 ### Node implementation for the bplus tree ###
-# Takes the max node size as a parameter on creation 
-# The leaf nodes keep track of the left and right neighbors 
-# Internal nodes will have left and right set to None 
-# Keys are the values of the entries are indexed on and 
-# RIDs correspond to the id of a single entry 
-# In the internal nodes, the rids list will be a list of children 
+# :brief        #The leaf nodes keep track of the left and right neighbors 
+#               #Internal nodes will have left and right set to None 
+#               #Keys are the values of the entries are indexed on and 
+#               #RIDs correspond to the id of a single entry 
+#               #In the internal nodes, the rids list will be a list of children 
 
 
 class Node():
-    
+    ### Initializer function for nodes ###
+    # :param max_node_size: int      #Max number of keys per node
     def __init__(self, max_node_size):
         self.max_node_size = max_node_size
         self.is_leaf = True
@@ -50,8 +50,10 @@ class Node():
     def right(self, right):
         self.__right = right
 
-    ### adds a key and rid pair to a node ###
-    # compares key value to determine were to add within node
+    ### Adds a key and rid pair to a node ###
+    # :param key:           #key to add to the tree
+    # :param rid: int       #RID the corresponds to entry with key value
+    # :brief    :           #Compares key value to determine were to add within node
     def add(self, key, rid):
         if not self.keys: #if keys is empty (root)
             self.keys.append(key)
@@ -75,9 +77,12 @@ class Node():
                 self.rids.append(rid)
                 break
         
-    ### removes a key and rid pair from a node ###
-    # goes through the keys of the node and if it finds the key, it will traverse 
-    # the corresponding rids until it finds the right rid or not
+    ### Removes a key and rid pair from a node ###
+    # :param key:       #key to add to the tree
+    # :param rid:       #RID the corresponds to entry with key value
+    # :brief    :
+    #                   #Goes through the keys of the node and if it finds the key
+    #                   #Will traverse the corresponding rids until it finds the right rid or not
     def remove(self, key, rid):
 
         for i, item in enumerate(self.keys):
@@ -94,7 +99,7 @@ class Node():
                 break
         pass      
 
-    ### reorders the keys values of the node after a tree balancing ###
+    # Reorders the keys values of the node after a tree balancing 
     def update_keys(self):
         if self.is_leaf:
             print("HMMMMM")
@@ -107,9 +112,11 @@ class Node():
                     self.keys[i-1] = self.rids[i].keys[0]
 
 
-    ### splits a node if it becomes too full by createing a left and right child node ###
-    # and moves the keys and rids of the calling node to the new nodes. 
-    # Then sets left and right as the children of the calling node and changes is_leaf to false.
+    ### splits a node ###
+    # :brief    :       #Creats a left and right child node from original node.
+                        #Moves the keys and rids of the calling node to the new nodes.
+                        #Sets left and right as the children of the calling node and changes is_leaf to false.
+                        #Diffferent splitting protocal depending on max node size parity
     def split(self):
         left = Node(self.max_node_size) 
         right = Node(self.max_node_size)
@@ -150,11 +157,24 @@ class Node():
         self.rids = [left, right]
         self.is_leaf = False
 
-    # node is full if it has more than max node number
+    # Node is full if it has more than max node number
     def is_full(self):
         return len(self.keys) == self.max_node_size + 1
 
-    # recursive function to print out a node and its descendents
+    ### Search function to key location ###
+    # :param key:           #Key to search for in node
+    # :return RID, index:   #Returns a RID or Node and its index
+    def _find(self, key): 
+        for i, item in enumerate(self.keys):
+            if key < item:
+                return self.rids[i], i
+                
+        if i < len(self.rids) - 1:
+            return self.rids[i+1], i+1
+        else:
+            return None, i
+
+    # Recursive function to print out a node and its descendents
     def key_helper(self, bool, ret=""):
         if bool:
             for val in bool:
@@ -186,43 +206,31 @@ class Node():
 
         return ret
 
-    # calls key_helper to generate a string of the current node and all its children
+    # Calls key_helper to generate a string of the current node and all its children
     def get_keys(self):
         bool = []
         to_print = self.key_helper(bool)
         return to_print
             
 ### Implementation of the Bplus tree ###
-    class BPlusTree(object): 
+class BPlusTree(object): 
 
-    # takes an int for max node size and creates a root node in initilization
+    ### Initializer function ###
+    # :param max_node_size: int     #Max number of keys per node    
+    # :brief    :                   #Takes an int for max node size and creates a root node in initilization
+    #                               #Sets leftmost node and rightmost node of tree to root node
     def __init__(self, max_node_size = 4):
         self.root = Node(max_node_size)
         self.left = self.root
         self.right = self.root
-        
-    # internal function that returns the index of key and its rids
-    def _find(self, node, key): 
-        
-        for i, item in enumerate(node.keys):
-            if key < item:
-                return node.rids[i], i
-                
-        if i < len(node.rids) - 1:
-            return node.rids[i+1], i+1
-        else:
-            return None, i
 
-    # function that finds and returns index of key and its rids
-    def find(self, node, key): 
-        return self._find(node, key)
-
-    ### merges a child node with its parent (after a split) ###
-    # parents is a list of nodes and index of child node (allows traversal up the tree)
-    # child node is a node that has just split
-    # iterates through the parent's keys and adds the child key to them
-    # if this makes the parent full, it will call split on the parent node
-
+    ### Merges a child node with its parent (after a split) ###
+    # :param parents:   #List of parent nodes and index of child nodes (allows traversal up the tree)
+    # :param child:     #Node that was just split
+    # :brief    :       #Pops childs closest ancestor (direct parent) and child's index
+    #                   #Iterates through the parent's keys and adds the child key to them
+    #                   #If this makes the parent full, it will call split on the parent node
+    #                   #If parent splits, recursively call on parent to merge up tree
     def _merge(self, parents, child):
 
         if parents:
@@ -259,12 +267,13 @@ class Node():
             if parents and not parents[-1][0].is_full():
                 self._merge(parents, parent)
 
-    ### inserts a key and rid pair to the tree ###
-    # finds to right leaf node for the key provided
-    # if the key exists it will add rid to the key's bucket
-    # otherwise it will add the key and rid pair to node
-    # and will call split if the node is full and merge it with it's parent
-        
+    ### Inserts a key and RID pair to the tree ###
+    # :param key:       #Key to add to tree 
+    # :param RID:       #RID corresponding to key
+    # :brief    :       #Finds to leaf node for the key provided
+    #                   #If the key exists it will add rid to the key's bucket
+    #                   #Otherwise it will add the key and rid pair to node
+    #                   #Will call split if the node is full and merge it with it's parent
     def insert(self, key, rid):
 
         child = self.root
@@ -273,7 +282,7 @@ class Node():
 
         while not child == None and not child.is_leaf:
 
-            child, index = self._find(child, key)
+            child, index = child._find(key)
             parents.append((prev_node, index))
             prev_node = child
 
@@ -300,10 +309,12 @@ class Node():
             if parents and not parents[-1][0].is_full():
                 self._merge(parents, child)
 
-    ### removes a key and rid pair from the tree ###
-    # If removing the rid results in the key having no corresponding rids
-    # It will delete the key from the node 
-    # rebalances if the node has a # of keys less then half the max_node_size after removal
+    ### Removes a key and rid pair from the tree ###
+    # :param key:       #Key to find in tree
+    # :param rid:       #RID to remove from tree
+    # :brief    :       #If removing the rid results in the key having no corresponding rids
+    #                   #Will delete the key from the leaf node
+    #                   #Rebalances removal results in # of keys less than 1/2 max_node_size
     def remove(self, key, rid):
 
         parents = []
@@ -311,7 +322,7 @@ class Node():
         child = self.root
 
         while not child == None and not child.is_leaf:
-            child, index = self._find(child, key)
+            child, index = child._find(key)
             parents.append((prev_node, index))
             prev_node = child
 
@@ -324,7 +335,7 @@ class Node():
         return None
 
     ### Finds node by rid by traversing the leaf nodes ###
-    # useful for deleting rids
+    # :param rid:       #RID to remove from tree
     def find_by_rid(self, rid):
 
         current_node = self.left
@@ -342,11 +353,13 @@ class Node():
         return key
         
     ### Balances the the tree after a key is removes ###
-    # parents is a list of nodes and index of child node (allows traversal up the tree)
-    # child node is a node that has just had a key removed resulting in less then max_node_num/2 keys
-    # finds the left sibling of the child if the child is not the rightmost node of the parent
-    # will combine or borrow from neighbor depending of the # of keys in neighbor node
-
+    # :param parents:   #List of parent nodes and index of child nodes (allows traversal up the tree)
+    # :param child:     #child node is a node that with less than max_node_num/2 # of keys
+    # :brief    :       #Pops child's closest ancestor (direct parent) and child's index
+    #                   #Finds the left sibling of the child if the child is not the rightmost node of parent
+    #                   #Will combine or borrow from neighbor depending of the # of keys in neighbor node
+    #                   #If two nodes combining results in the parent node with less than ax_node_num/2 # of keys
+    #                   #Will recursively call balance on the parent and balance up the tree
     def _balance(self, parents, child):
 
         if parents:
@@ -379,10 +392,10 @@ class Node():
             is_Leafs = True
 
         flags = (to_the_left,is_Leafs)
-        indexes = (index, sibling_index)
+        indices = (index, sibling_index)
 
         if len(sibling.keys) <= (sibling.max_node_size + 1)/2:
-            self.consolidate(indexes, child, sibling, parent, flags)
+            self.consolidate(indices, child, sibling, parent, flags)
 
             if parent != self.root and len(parent.keys) < parent.max_node_size/2 :
                 self._balance(parents, parent)
@@ -391,13 +404,21 @@ class Node():
                     self.root = parent.rids[0]
 
         else:
-            self.share(indexes, child, sibling, parent, flags)
-    ### helper function for balancing the combines two nodes ###
-    # called if the sibling has less than or equal to (max node size + 1)/2
-    # moves all the sibling keys to the child keys and updates the parents keys if needed
+            self.share(indices, child, sibling, parent, flags)
 
-    def consolidate(self, indexes, child, sibling, parent, flags):
-        index, sibling_index = indexes
+    ### Helper function for balancing that combines two nodes ###
+    # :param indices:   #Tuple of ndices of child and sibling
+    # :param child:     #Node the needs to have more keys
+    # :param sibiling:  #Node that child combining with
+    # :param parent:    #Parent node of child and sibling nodes
+    # :param flag:      #Tuple of two bools that indicate
+    #                   #Bool 1 for if sibling is to the left
+    #                   #Bool 2 for if child is a leaf node
+    # :brief    :       #Called if the sibling has less than or equal to (max node size + 1)/2
+    #                   #Moves all the sibling keys to the child keys and updates the parents keys if needed
+
+    def consolidate(self, indices, child, sibling, parent, flags):
+        index, sibling_index = indices
         to_the_left, is_Leafs = flags
 
         while sibling.keys or sibling.rids:
@@ -438,13 +459,21 @@ class Node():
 
         if parent.rids[0].is_leaf:
             parent.update_keys()
-    ### helper function for balancing that moves keys from sibling ###
-    # called if the sibling has more than (max node size + 1)/2
-    # moves the sibling keys to the child keys until child has max_node_size/2 keys or more
-    # will updates the parents keys if needed
 
-    def share(self, indexes, child, sibling, parent, flags):
-        index, sibling_index = indexes
+    ### Helper function for balancing that moves keys from sibling to child ###
+    # :param indices:   #Tuple of ndices of child and sibling
+    # :param child:     #Node the needs to have more keys
+    # :param sibiling:  #Node that child combining with
+    # :param parent:    #Parent node of child and sibling nodes
+    # :param flag:      #Tuple of two bools that indicate
+    #                   #Bool 1 for if sibling is to the left
+    #                   #Bool 2 for if child is a leaf node
+    # :brief    :       #Called if the sibling has more than (max node size + 1)/2
+    #                   #Moves the sibling keys to the child keys until child has max_node_size/2 keys or more
+    #                   #Will updates the parents keys if needed
+
+    def share(self, indices, child, sibling, parent, flags):
+        index, sibling_index = indices
         to_the_left, is_Leafs = flags
 
         while len(sibling.keys) > child.max_node_size/2 and len(child.keys) < child.max_node_size/2:
@@ -478,14 +507,17 @@ class Node():
 
         if not child.is_leaf and child.rids[0].is_leaf:
             child.update_keys()
-    ### search function by range ###
-    # finds the start of the range and then traverses the leaf nodes 
-    # returns a list of rids in the range given
+
+    ### Search function by range ###
+    # :param start:     #Start value of range
+    # :param end:       #End value of range
+    # :brief    :       #Finds the start of the range and then traverses the leaf nodes
+    # :return list:     #List of rids in the range given
     def bulk_search(self, start, end):
 
         current_node = self.root
         while not current_node == None and not current_node.is_leaf:
-            current_node, index = self._find(current_node, start)
+            current_node, index = current_node._find(start)
         
         rids_to_return = []
         # sum = 0
@@ -504,16 +536,17 @@ class Node():
                     
         return rids_to_return
 
-    ### sum function by range ###
-    # finds the start of the range and then traverses the leaf nodes 
-    # returns sum of keys in the range given
+    ### Sum function by range ###
+    # :param start:     #Start value of range
+    # :param end:       #End value of range
+    # :brief    :       #Finds the start of the range and then traverses the leaf nodes
+    # :return int:      #Sum of keys in the range given
     def sum_range(self, start, end):
         current_node = self.root
         while not current_node == None and not current_node.is_leaf:
-            current_node, index = self._find(current_node, start)
+            current_node, index = current_node._find(start)
         
         sum = 0
-        # sum = 0
         current_key = start
         
         while current_key <= end and current_node != None:
@@ -530,7 +563,7 @@ class Node():
                     
         return sum
     
-    ### returns all the leaf nodes as a list with root node at the beginning ###
+    # Returns all the leaf nodes as a list with root node at the beginning (for writting to disk)
     def get_all_leaves(self):
 
         current_node = self.left
@@ -543,13 +576,14 @@ class Node():
 
         return return_data
 
-    ### finds rids by keys ###
-    # returns  list of rids
+    ### Finds rids by keys ###
+    # :param key:       #Key value to search for in tree
+    # :return list:     #list of rid(s)
     def get_rid(self, key):
         child = self.root
 
         while not child == None and not child.is_leaf:
-            child, index = self._find(child, key)
+            child, index = child._find(key)
 
         if child != None:
             for i, item in enumerate(child.keys):
@@ -558,10 +592,11 @@ class Node():
 
         return None
     
-    ### gets tree in string form
+    # Gets tree in string form
     def get_keys(self):
         return self.root.get_keys()
 
+# Test stuff
 
 def demo_treeNum():
     seed(123245)

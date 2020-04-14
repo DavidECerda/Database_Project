@@ -4,8 +4,14 @@ from time import process_time
 
 import threading
 
+### Page object ###
+# Represents a page of data (set to 4096 bytes) as a byte array
+# Keeps track of number of records and whether the it has been loaded or written to
+# Also, each page was a 8 bytes reserved for a tail processing sequence number (tps)
 class Page:
 
+    ### Initializer funtion  ###
+    # :param is_importing: bool     #Determines whether the page will be loaded with data from disk or be a new blank page. 
     def __init__(self, is_importing = False):
         self.num_records = 0
         self.num_records_lock = threading.Lock()
@@ -40,9 +46,12 @@ class Page:
     def is_dirty(self, is_loaded):
         self.__is_loaded = is_loaded
         
-    # def set_pid(self,indexes):
-    #     self.indexes = indexes
 
+    ### Loads data ###
+    # :param data: byte array       #Data to be loading onto the page
+    # :param num_records:           #Number of records in the page
+    # :param is_dirty:              #If the page needs to be written to disk
+    # :param force:                 #Forces preexisting page data to be over written
     def load(self, data, num_records=None, is_dirty=None, force=False):
         if self.is_loaded and not force:
             return self
@@ -57,7 +66,7 @@ class Page:
             self.is_dirty = is_dirty
 
         return self
-
+    # Sets data to none and is_loaded to false
     def unload(self):
         self._data = None
         self.is_loaded = False
@@ -68,12 +77,14 @@ class Page:
     def get_num_records(self):
         return self.num_records
 
+        
+    ### Writes bytes to the page ###
+    # :param value: bytes       #Dat  to write. Must be bytes of the specified CELLS_PER_PAGE size
+    # :brief    :               #Writes the bytes to the next available cell in the page
+    #                           #Which is determined by the number of records in page
+    #                           #Marks page as dirty 
+    # return int:               #Returns the number of records in the page   
     def write(self, value):
-        '''
-            Writes bytes to the page
-
-            value: Must be bytes of the specified CELLS_PER_PAGE size
-        '''
         with self.num_records_lock:
             if not self.has_capacity():
                 raise Exception('page is full')
@@ -90,13 +101,14 @@ class Page:
         self.is_dirty = True
         return record_num
 
+    
+    ### Writes bytes to the page at specific cell ###
+    # :param value: bytes       #Data to write. Must be bytes of the specified CELLS_PER_PAGE size
+    # :param cell_idx: int      #Index of cell to write to. Only write to what has already been written too
+    # :param increment:         #If writing to cell adds another record to page
+    # :brief    :               #Allows writing to preexisting cells and updating data
+    # :return int:              #Returns number of records in the page
     def write_to_cell(self, value, cell_idx, increment=False):
-        '''
-            Writes bytes to the page at specific cell
-            Only write to cells that you KNOW have been written to!
-
-            value: Must be bytes of the specified CELLS_PER_PAGE size
-        '''
 
         if increment:
             if not self.has_capacity():
@@ -113,6 +125,8 @@ class Page:
 
         return self.num_records
 
+    ### Writes tail page sequencing number ###
+    # :param tid: int       :Last tail id the was merging into the base record
     def write_tps(self, tid):
         bytes_to_write = tid.to_bytes(CELL_SIZE_BYTES,'little')
         start = 0
@@ -123,6 +137,8 @@ class Page:
     def read_tps(self) -> int:
         return int_from_bytes(bytes(self._data[0:CELL_SIZE_BYTES]))
 
+    ### Reads a specific cell ###
+    # :param cellIndex: int     #Index of cell to read from
     def read(self, cellIndex):
         '''
             Reads bytes from page, returning a bytearray
@@ -134,6 +150,7 @@ class Page:
         end = start + CELL_SIZE_BYTES
         return bytes(self._data[start:end])
 
+    # Copies page
     def copy(self):
         copy = Page()
         copy._data = self._data.copy()

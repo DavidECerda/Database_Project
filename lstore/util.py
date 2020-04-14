@@ -1,11 +1,10 @@
 from config import *
 import threading
 
+### Utility functions for the database innerworkings ###
+
+# Normalizes string, converts to lowercase, removes non-alpha characters, and converts spaces to hyphens.
 def sanitize(table_name):
-    """
-    Normalizes string, converts to lowercase, removes non-alpha characters,
-    and converts spaces to hyphens.
-    """
     import string
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     filename = ''.join(c for c in table_name if c in valid_chars)
@@ -15,10 +14,8 @@ def sanitize(table_name):
     
     return filename
 
+# Takes bytes of schema encoding and converts it to a string
 def parse_schema_enc_from_bytes(enc_bytes):
-    '''
-      Takes bytes of schema encoding and converts it to a string 
-    '''
 
     ret_enc = ''
     for byte in enc_bytes:
@@ -29,32 +26,29 @@ def parse_schema_enc_from_bytes(enc_bytes):
 def int_from_bytes(from_bytes):
     return int.from_bytes(from_bytes, BYTE_ORDER)
 
+    
+# Int from bytes
 def ifb(_bytes):
-    '''
-    Int from bytes
-    '''
     return int_from_bytes(_bytes)
 
 
 def int_to_bytes(data):
     return data.to_bytes(CELL_SIZE_BYTES, BYTE_ORDER)
 
-
+# Int to bytes
 def itb(data):
-    '''
-    Int to bytes
-    '''
     return int_to_bytes(data)
 
 
+### Gets inner index of value ###
+# :param outer_index: int       #Overall place within list
+# :param container_size: int    #Size of container within list
+#   Example with container size = 3
+#   | 0 1 2 | | 3 4 5 | | 6 7 8 |
+#    Inner_index = 0 for 0, 3, 6
+#    Inner_index = 1 for 1, 4, 7
+#    Inner_index = 2 for 2, 5, 6
 def get_inner_index_from_outer_index(outer_index, container_size):
-    '''
-      List 1
-      | 0 1 2 | | 3 4 5 | | 6 7 8 |
-      0 -> 0, 3 -> 0, 6 -> 0
-      1 -> 1, 4 -> 1, 7 -> 1
-      2 -> 2, 5 -> 2, 8 -> 2,
-    '''
 
     if outer_index < container_size:
         return outer_index
@@ -68,14 +62,14 @@ def get_inner_index_from_outer_index(outer_index, container_size):
 
     return base_index
 
+# Gets a latch to lock a variable
 def acquire_latch(lock):
     while(True):
         is_acquired = lock.acquire(False)
         if is_acquired:
             return lock
 
-
-
+# Self explanatory
 def acquire_all(locks):
     acquired = []
 
@@ -93,12 +87,12 @@ def acquire_all(locks):
 
     return acquired
 
-
+# Self explanatory
 def release_all(locks):
     for lock in locks:
         lock.release()
 
-
+# Takes list of numbers of schema encoding and converts it to binary
 def col_encoding_to_binary(list, truthy=1, falsey=0):
     bin = 0
     for i, bit in enumerate(list):
@@ -123,7 +117,9 @@ def check_col_encoding(bin_enc, col):
     mask = 2**col
     return mask & bin_enc == mask
 
-
+### Converts pid to bytes ###
+# :param pid:       #Tuple of inner_idx, page_idx, page_range_idx
+# :return bytes:    #Bytes of a pid representing inner_idx, page_idx, page_range_idx
 def encode_pid(pid):  # 24 bytes
     out = b''
     for idx in pid:
@@ -131,7 +127,9 @@ def encode_pid(pid):  # 24 bytes
 
     return out
 
-
+### Converts bytes to pid ###
+# :param bytes_pid: #Bytes of a pid representing inner_idx, page_idx, page_range_idx
+# :return tuple:    #Tuple of inner_idx, page_idx, page_range_idx
 def decode_pid(bytes_pid):  # 24 bytes
     inner_idx = int_from_bytes(bytes_pid[0:8])
     page_idx = int_from_bytes(bytes_pid[8:16])
@@ -139,7 +137,7 @@ def decode_pid(bytes_pid):  # 24 bytes
 
     return (inner_idx, page_idx, pr_idx)
 
-
+#testing stuff
 def test():
     enc = [(1, 0, 0), None, (1, 0, 0), None]
     bin = col_encoding_to_binary(enc, falsey=None)

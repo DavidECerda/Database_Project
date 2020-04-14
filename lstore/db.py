@@ -7,7 +7,7 @@ from diskmanager import DiskManager
 # Also allows creation of new tables and iumporting old tables
 class Database():
 
-    # initialized with a diskmanager class which handles reading and writing files from and to disk
+    # Initialized with a diskmanager class which handles reading and writing files from and to disk
     def __init__(self):
         self.tables = {}
         self.my_manager = DiskManager()

@@ -3,27 +3,26 @@ from pagerange import PageRange
 from util import *
 from config import *
 
+### Utility functions to read and write from and to disk ###
+
+
+### Encodes the information of a pagerange ###
+# :param pr:        #Pagerange to encode
+# :brief    :       #Encodes all the meta info of the pagerange (page counts)
+                    #Then encodes all the data of the pages into a byte array
 def encode_pagerange(pr):
 
-    #
     # Write Meta
-    #
     BYTES_base_page_count = int_to_bytes(pr.base_page_count)
     BYTES_tail_page_count = int_to_bytes(pr.tail_page_count)
 
-    #
     # Write Base Pages
-    #
-
     BYTES_base_pages = b''
     for i in range(pr.base_page_count):
         page = pr.base_pages[i]
         BYTES_base_pages += encode_page(page)  # 8 + PAGE_SIZE
 
-    #
     # Write Tail Pages
-    #
-
     BYTES_tail_pages = b''
     for i in range(pr.tail_page_count):
         page = pr.tail_pages[i]
@@ -37,6 +36,9 @@ def encode_pagerange(pr):
 
     return write
 
+### Encodes all the information of a page ###
+# :param page:      #Page to encode
+# :brief    :       #Writes the num of records and data to a byte array
 def encode_page(page: Page):
     if page == None:
         num_records = 0
@@ -51,24 +53,20 @@ def encode_page(page: Page):
 
     return out
 
+### Decodes pagerange ###
+# :param BYTES_pr:      #Bytes that contain the info of a pagerange
 def decode_pagerange(BYTES_pr) -> PageRange:
 
     pr = PageRange()
 
-    #
     # Read Meta
-    #
-
     BYTES_base_page_count = BYTES_pr[PR_META_OFFSETS[0]:PR_META_OFFSETS[1]]  # 8 bytes
     BYTES_tail_page_count = BYTES_pr[PR_META_OFFSETS[1]:PR_META_OFFSETS[2]]  # 8 bytes
 
     pr.base_page_count = int_from_bytes(BYTES_base_page_count)
     pr.tail_page_count = int_from_bytes(BYTES_tail_page_count)
 
-    #
     # Read Base Pages
-    #
-
     bytes_page_size = 8 + PAGE_SIZE
     offset_end_base = 16
 
@@ -81,11 +79,7 @@ def decode_pagerange(BYTES_pr) -> PageRange:
         page = decode_page(BYTES_page)
         pr.base_pages[i] = page
 
-
-    #
     # Read Tail Pages
-    #
-
     for i in range(pr.tail_page_count):
         start = offset_end_base + (i * bytes_page_size)
         end = start + bytes_page_size
@@ -96,6 +90,8 @@ def decode_pagerange(BYTES_pr) -> PageRange:
 
     return pr
 
+### Decodes a page ###
+# :param page:      #Bytes that contain the info of a page
 def decode_page(BYTES_page) -> Page:
     page = Page(True) # type: Page
     # data, num_records=None, is_dirty=None, force=False):
@@ -105,91 +101,59 @@ def decode_page(BYTES_page) -> Page:
     page.load(data, num_records)
     return page
 
-def fetch_pr_bytes(pr_idx):
-    pass
-
-def extract_page_data_from_pr(pr_bytes, inner_idx):
-
-    max_base_pages = 16
-    offset_start_bp = 16
-    bytes_page_size = 8 + PAGE_SIZE
-    
-    if inner_idx < 16: # Getting base page
-        pass
-    else:
-        pass
-
+# test stuff
 def compare_pages(a, b):
     results = []
     test = a.num_records == b.num_records
     results.append(test)
-    # print('\tNum Records match', test)
 
     test = a.read_tps() == b.read_tps()
     results.append(test)
-    # print('\tTPS match', test)
 
     for r in range(a.num_records):
         test = int_from_bytes(a.read(r)) == int_from_bytes(b.read(r))
         results.append(test)
-        # print('\tRecord', i, 'match', test)
 
     return results
-    # print('')
 
+# test stuff
 def compare_page_ranges(a, b):
     results = []
 
     test = b.base_page_count == a.base_page_count
     results.append(test)
-    # print('Base pages count match:', test)
 
     test = b.tail_page_count == a.tail_page_count
     results.append(test)
-    # print('Tail pages count match:', test)
 
-    # print('Comparing base pages...')
     for i, page in enumerate(b.base_pages):
-        # print('\tPage', i)
         if page == None:
             test = a.base_pages[i] == None
             results.append(test)
-            # print('\tNone match', test)
             continue
 
         test = page.num_records == a.base_pages[i].num_records
         results.append(test)
-        # print('\tNum Records match', test)
 
         test = page.read_tps() == a.base_pages[i].read_tps()
         results.append(test)
-        # print('\tTPS match', test)
 
         for r in range(page.num_records):
             og_page = a.base_pages[i]
             test = int_from_bytes(page.read(r)) == int_from_bytes(og_page.read(r))
             results.append(test)
-            # print('\tRecord', i, 'match', test)
 
-        # print('')
-
-    # print('\nComparing tail pages...')
     for i, page in enumerate(b.tail_pages):
-        # print('\tPage', i)
-        # print('\tNum Records match', page.num_records == a.tail_pages[i].num_records)
-        # print('\tTPS match', page.read_tps() == a.tail_pages[i].read_tps())
+
 
         for r in range(page.num_records):
             og_page = a.tail_pages[i]
             test = int_from_bytes(page.read(r)) == int_from_bytes(og_page.read(r))
             results.append(test)
-            # print('\tRecord', i, 'match', test)
-
-        # print('')
     
-    # print('Done')
     return results
 
+# test stuff
 def test():
 
     pr = PageRange()

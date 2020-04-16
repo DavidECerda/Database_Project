@@ -3,8 +3,15 @@ from config import *
 from page import Page
 from util import *
 
+
+### MergeJob Class ###
+# Class handles the innerworks of a merge
+# A merge will take all the records of a table and
+# Update the base record values based on the existing tail records
 class MergeJob:
 
+    ### Initializer function of the mergejob ###
+    # :param table:     #Table whose records will be merged
     def __init__(self, table):
         self.copied_metarecords = {} # key to metarecord
         self.copied_base_pages = {} # (inner, pr) to page
@@ -13,6 +20,9 @@ class MergeJob:
         self.table = table # type: Table
         self.to_unpin = []
 
+    ### Function that copies all the base records ###
+    # :returns copies:  #List of copied records
+    # :brief    :       #Copies all the base records and metarecords and uses those for merge
     def copy_data(self):
         self.copied_prev_rid = self.table.prev_rid
         copied_metarecords = {}
@@ -41,31 +51,33 @@ class MergeJob:
 
         return [copied_metarecords, copied_base_pages]
         
-
+    ### Reads the copied pages ###
+    # :param pid: tuple     #Tuple of three (cell_idx, inner_idx, range_idx) that allows reading a single cell
+    # returns bytes:        #Returns the bytes in the cell specified by the pid
     def read_copied_by_pid(self, pid):
         cell_idx, inner_idx, range_idx = pid
         page = self.copied_base_pages[(inner_idx, range_idx)] # type: Page
         bytes_read = page.read(cell_idx)
         return bytes_read
 
+    # Same as above but returns the int values
     def read_copied_by_pid_as_int(self, pid):
         return int_from_bytes(self.read_copied_by_pid(pid))
 
-    def write_to_copied_by_pid(self, pid, data):
-        '''
-        write to copied page
 
-        pid: full address
-        data: data as number
-        '''
+    
+    ### Function to write to copied page ###
+    # :param pid:       #full address, see read_copied_by_pid
+    # :param data: int  #Data as an int
+    def write_to_copied_by_pid(self, pid, data):
 
         cell_idx, inner_idx, range_idx = pid
         page = self.copied_base_pages[(inner_idx, range_idx)] # type: Page
         bytes_to_write = int_to_bytes(data)
         page.write_to_cell(bytes_to_write, cell_idx)
         self.copied_base_pages[(inner_idx, range_idx)] = page
-        # print('')
 
+    # Function to get latest record values, see collapse_record from table.py
     def collapse_record(self, rid):
         base_record = self.copied_metarecords[rid] # type: MetaRecord
 
@@ -129,20 +141,27 @@ class MergeJob:
                 if next_rid == rid: # if next rid is base
                     raise Exception("Came back to original, didn't get all we needed")
 
-        # print('\tresp', resp)
         return [base_record, resp]
 
+    ### Writes merged data to copied pages ###
+    # :param base_record:       #Base record whose data has been merged
+    # :param data_cols:         #Data values from the merge
     def write_collapsed_pages(self, base_record, data_cols):
         
         for i, data in enumerate(data_cols):
             pid = base_record.columns[START_USER_DATA_COLUMN + i]
             self.write_to_copied_by_pid(pid, data)
 
+    # Writes the tail processing sequence number to all the pages
     def write_tps_to_all(self):
 
         for page in self.copied_base_pages.values():
             page.write_tps(self.min_tid)
 
+    ### Loads merged pages back into table ###
+    # :param merged_record:     #Merged record with the new merged data
+    # :brief            :       #Loads the merged pages into the table, overriding the original pages
+    #                           #Will check if new records have been added and copies those to the merged pages
     def load_into_table(self, merged_record):
         og_record = self.table.page_directory[merged_record.rid]
         merged_data_cols = merged_record.columns[START_USER_DATA_COLUMN:]
@@ -155,7 +174,6 @@ class MergeJob:
             og_page = self.table.get_page(pid)
 
             # Make sure the page is loaded first
-            # with WriteLatch(og_page.latch):
             with og_page.latch:
                 if not og_page.is_loaded:
                     raise Exception("The original page isn't loaded")
@@ -168,16 +186,10 @@ class MergeJob:
                 og_page._data = data
                 og_page.is_dirty = True
                 og_page.is_loaded = True
-                    
-                # og_page.load(new_page._data, is_dirty=True)
-            # og_page.data = new_page.data
-            # og_page.is_dirty = True
-            
 
-        # og_metacolumns  = og_record.columns[0:START_USER_DATA_COLUMN]
-        # merged_record.columns = og_metacolumns + merged_data_cols
-        # self.table.page_directory[merged_record.rid] = merged_record
-
+    ### Runs the merge ###
+    # :brief    :       #Copies the data and merges it with the talk records
+    #                   #Then reloads it back into the table, while managing all the locks needed
     def run(self):
 
         self.table.merging = 1

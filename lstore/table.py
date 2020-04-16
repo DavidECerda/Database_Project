@@ -480,8 +480,9 @@ class Table:
     # :param query_columns  #Columns to return values for
     # :returns list:        #List of values (none if none in query columns)
     # :brief    :           #Function will get a lock on the record and then
-    #                       #Find the latest tail record through the base records indirection number
-    #                       #And move to older tail records until it has the latest values
+    #                       #Find the latest tail record through the base record's indirection number
+    #                       #And move to older tail records until it has the latest values or hits a
+    #                       #Tail records that has already been merged into the base record
     def collapse_row(self, rid, query_columns):
         resp = [None for _ in query_columns]
         # rid = self.key_index[key]
@@ -508,7 +509,6 @@ class Table:
             base_enc_pid = base_record.columns[SCHEMA_ENCODING_COLUMN]
             base_enc_bytes = self.read_pid(base_enc_pid)
             base_enc_binary = bin(int_from_bytes(base_enc_bytes))[2:].zfill(self.num_columns)
-            # print(base_enc_pid, "Looking for data using schema",base_enc_binary)
             tps_all = resp.copy()
 
             for data_col_idx, is_dirty in enumerate(base_enc_binary):
@@ -566,6 +566,7 @@ class Table:
             # Release locks and return
             release_all(locks)
             return resp
+
     ### Function that deletes a record ###
     # :param key:       #Primary key of record to be deleted
     # :return bool:     #True if successful, exception otherwise

@@ -40,7 +40,6 @@ class Table:
     # :param num_columns: int       #Number of Columns: all columns are integer
     # :param key: int               #Index of table key in columns
     # :param disk: DiskManager      #DiskManager class to read and write pages from and to disk
-    # :IV  
     def __init__(self, name, num_columns, key_col, disk):
         
         self.name = name
@@ -92,7 +91,7 @@ class Table:
         return self._del_locks[rid]
 
     ### Initiates a mergejob ###
-    # :brief    :       #
+    # :brief    :       schedules a merge that combines combines the tail records into the base records#
     def schedule_merge(self):
         with self.merge_schedule_lock:
             if self.merging <= 0:
@@ -105,32 +104,48 @@ class Table:
                 merge = threading.Thread(target=start_merge, args=())
                 merge.start()
                 self.updates_since_merge = 0
-
+    
+    ### Creates index on a column ###
+    # :param column_idx:        #Column number in table
     def create_index(self, column_idx):
         self.indices.create_index(column_idx)
     
+    ### Removes an index from table ###
+    # :param column_idx:        #Column number in table
     def drop_index(self, column_idx):
         self.indices.drop_index(column_idx)
     
 
-
+    ### Gets a page ###
+    # :param pid: tuple     #Tuple of three (cell_idx, page_idx, page_range_idx)
     def get_page(self, pid): # type: Page
-        # cell_idx, page_idx, page_range_idx = pid
-        # page_range = self.page_ranges[page_range_idx] # type: PageRange
-        # page = page_range.get_page(page_idx) # type: Page
-
         page = self.bp.get_page(pid, pin=True)
         return page
 
+    ### Gets a pagerange ###
+    # :param page_range_idx:        #Index of pagerange in table
     def get_page_range(self,page_range_idx):
         return self.page_ranges[page_range_idx]
 
+    ### Reads the specific cell of a page ###
+    # :param pid: tuple     #Tuple of three (cell_idx, page_idx, page_range_idx)
     def read_pid(self, pid): # type: Page
         page = self.get_page(pid) # type: Page
         read = page.read(pid[0])
         self.bp.unpin((pid[1], pid[2]))
         return read
 
+    ### Gets base page ###
+    # :param col_idx:       #Column number in the table
+    # :param new_row_num:   #Number of records in table + 1
+    # :returns tuple:       #A tuple consisting of a page class and a pid (see read_pid)
+    # :brief    :           #Function to get a base page with space for more records
+    #                       #And calculates the prev cell index from col_idx and new_row_num
+    #                       #If the the prev cell index is the max cell index,
+    #                       #The function will calculate the supposed pagerange index
+    #                       #And see if the pagerange exists, otherwise it creates a new pagerange
+    #                       #Then it will call create_base_page from the pagerange class to ge ta new page
+    #                       #If the previously used page was not full then it will retrieve that page
     def get_open_base_page(self, col_idx, new_row_num):
         # how many pages for this column exists
         num_col_pages = ceil((new_row_num - 1) / CELLS_PER_PAGE)
@@ -200,19 +215,19 @@ class Table:
 
         return (pid, page)
 
+    ### Function that inserts a new record in the table ###
+    # :param columns_data:      #A list of all the values for each user column
+    # :returns bool:            #Returns true if successful
+    # :brief    :               #Gets a lock of an open base page and the gets each column base page and pid
+    #                           #Writes all the metadata and then writes the user data to the relevant pages
+    #                           #Puts the RID and page in the page directory and key and RID in the key_index
     def create_row(self, columns_data):
 
         key = columns_data[self.key_col]
 
-        
-        # rids = self.indices.locate(self.key_col, key)
-
         if key in self.key_index:
-        #if rids is not None:
             raise Exception('Key already exists')
             
-
-        # with self.merge_lock:
         # ORDER OF THESE LINES MATTER
         with self.get_open_bp_lock:
             self.num_rows += 1
@@ -275,6 +290,14 @@ class Table:
         # self.indices.insert(key, rid, self.key_col)
         return True
 
+    ### Function to update a record ###
+    # :param key:           #Primary key of record to update
+    # :param update_data:   #List of values for update, None if value is not to be updated
+    # :returns True         #If the update is successful it returns true, returns False if update data is all None needed
+    # :brief    :           #Calcualtes the tail schema based on which columns need to be updated
+    #                       #Gets the base record indirection as indirection of the new tail record of update
+    #                       #Writes all the metadata and then the user data to the new tail record
+    #                       #Finally updates the base record indirection and schema
     def update_row(self, key, update_data):
         base_rid = self.key_index[key]
         with self.tid_latch:
@@ -372,7 +395,13 @@ class Table:
 
         return True
 
+    ### Helper function for update that writes to tail pages ###
+    # :param base_record:       #Base record to be updated
+    # :param column:            #Column to be written to
+    # :param data: bytes        #Data to be written
+    # :returns pid: tuple       #Returns a pid (see read_pid function)
     def write_tail_column(self, base_record, column, data):
+
         with self.tail_col_lock:
             logging.debug("%s: (%s) Start write tail column: %s, data: %s", threading.get_ident(), "write_tail_column", column, data)
             _,_,page_range_idx = base_record.columns[column]
@@ -382,7 +411,6 @@ class Table:
             logging.debug("%s: (%s) Got open tail page pid: %s", threading.get_ident(), "write_tail_column", column_pid)
             self.bp.add_page(column_pid, column_page, pin=True)
 
-            # write indirection
             logging.debug("%s: (%s) write tail page pid: %s", threading.get_ident(), "write_tail_column", column_pid)
             num_records_in_page = column_page.write(data)
             column_cell_idx = num_records_in_page - 1
@@ -390,15 +418,24 @@ class Table:
 
             self.bp.unpin((column_inner_idx, page_range_idx))
 
-
             return column_pid
 
+    ### Updates the indices of a record ###
+    # :param tail_schema:       #Indicated which columns were updated
+    # :param update_data:       #The new values for the columns
+    # :param base_rid:          #Rid of base record being updated
     def update_indices(self, tail_schema, update_data, base_rid):
         for col in range(len(update_data)):
             if '1' == tail_schema[col] and self.indices.is_indexed(col):
                 self.indices.update_index(base_rid, update_data[col], col)
 
-
+    ### Select gets values of a record ###
+    # :param key:       #Key of record to get values for
+    # :param column:    #Column to search with
+    # :query_columns:   #Columns to return values for
+    # :returns record:  #A class that contains the values of the columns
+    # :brief        :   #Either uses collaspe row funciton if search column is the key col or
+    #                   #Uses the indices of a column to search for the key given
     def select(self, key, column, query_columns):
 
         if column == self.key_col:
@@ -438,6 +475,13 @@ class Table:
             
             return records
 
+    ### Gets the values of a record through RID ###
+    # :param rid:           #Identifier number of the record
+    # :param query_columns  #Columns to return values for
+    # :returns list:        #List of values (none if none in query columns)
+    # :brief    :           #Function will get a lock on the record and then
+    #                       #Find the latest tail record through the base records indirection number
+    #                       #And move to older tail records until it has the latest values
     def collapse_row(self, rid, query_columns):
         resp = [None for _ in query_columns]
         # rid = self.key_index[key]
@@ -522,7 +566,12 @@ class Table:
             # Release locks and return
             release_all(locks)
             return resp
-
+    ### Function that deletes a record ###
+    # :param key:       #Primary key of record to be deleted
+    # :return bool:     #True if successful, exception otherwise
+    # :brief    :       #Finds the base record and sets rid to 0 
+    #                   #Then finds all the tail records and sets their rids to 0
+    #                   #Finally deletes RIDs from all indices
     def delete_record(self, key):
 
         try:
@@ -593,7 +642,12 @@ class Table:
         del self._del_locks[base_rid]
         del self._rw_locks[base_rid]
 
-
+    ### Sums records ###
+    # :param start_range:               #Start of records to sum
+    # :param end_range:                 #End of records to sum
+    # :param aggregate_column_index:    #Column whose values to sum
+    # :returns int:                     #Sum of values
+    # :brief    :                       #Uses collapse_row to get the values and sums them
     def sum_records(self, start_range, end_range, aggregate_column_index):
         query_columns = [0]*self.num_columns
         query_columns [aggregate_column_index] = 1

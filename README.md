@@ -1,5 +1,38 @@
-# OurSQL
-ECS 165a project. Database for the proletariat. 
+# OurSQL: The Database for the Proletariat
+###### Database project by Matthew Ha, Harris Zia, and David Cerda
+---
+
+## Overview
+
+The project was to implement a L-store database ([original paper on lstore](https://www.researchgate.net/publication/324150481_L-Store_A_Real-time_OLTP_and_OLAP_System) and [relevant slides](https://expolab.org/papers/l-store-slides.pdf)) and consisted of three milestones that built upon each other. 
+
+## Milestone 1
+
+### Goal
+Create a single-threaded, in memory database, based on L-Store which has the capacity to perform simple SQL-like operations.
+
+### Objectives
+* Data Model: Columnar, where the data from different records for the same column are stored together. 
+    * Base record: original version of a record inserted into the database
+    * Tail record: update to base record
+    * Base page: Read-only pages that store the base records 
+    * Tail page: Append-only pages associated with a base page that hold corresponding tail records i.e. updates.
+    * Schema encoding: An binary string that has a '1' for updated columns and '0' for columns not yet updated. Converted to an int for storage
+    * RID and Indirection: An RID is unique identifier for each record and each record has an indirection column which points to the tail record containing the latest update. 
+    * Pageranges: 
+* Bufferpool Management
+* Query Interface
+
+## Milestone 2
+
+## Milestone 3
+
+
+
+
+
+
+
 
 Milestone 2 Summary and Writeup
 

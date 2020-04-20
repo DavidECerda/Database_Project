@@ -19,13 +19,36 @@ Create a single-threaded, in memory database, based on L-Store which has the cap
     * Tail page: Append-only pages associated with a base page that hold corresponding tail records i.e. updates.
     * Schema encoding: An binary string that has a '1' for updated columns and '0' for columns not yet updated. Converted to an int for storage
     * RID and Indirection: An RID is unique identifier for each record and each record has an indirection column which points to the tail record containing the latest update. 
-    * Pageranges: 
-* Bufferpool Management
-* Query Interface
+    * Page ranges: Structure to associate base and tail pages. Each range contains a set of base pages (one for each column) and the set of tail pages (added as they fill with updates) the hold updates to the base pages
+
+* Query Interface: simple query capabilities based on standard SQL-like functionalities.
+    * Select: Returns a specified set of columns from entry with specific key
+    * Insert: Adds new entry into the table
+    * Update: Changes values for a specified set of columns
+    * Delete: Removes entry with specified key
+    * Aggregate: Sums fover the values of a selected column for a range of records
 
 ## Milestone 2
-
+### Goal
+Extend the database capabilities by implementing durable disk storage and a bufferpool to manage which pages are in memroy, as well as, a periodic merge process to keep base pages up-to-date. Additionally, we implemented column indexing for fast lookup by value. 
+### Objectives
+* Durability and Bufferpool Management
+    *  Maintain a pool of pages in memory for reading and writing data to and from disk storage.
+    * Manage loading requested pages to bufferpool and evicting pages if the bufferpool is full
+    * Writing any dirty pages (has been written to) to disk before discarding from pool
+* Data Reorganization
+    * Periodic merge process that collapses the tail updates into a base record to bring base pages about up-to-date and thus decrease lookup times
+    *  Merge process is contention free, allowing queries to occur on the pages. 
+    *  Two copies of the base pages are kept in memory, the unmerged and the to-be-merged. After the merge, the updated pages replace the obsolete pages.
+    *   Maintain a Tail-Page Sequencing Number (TPS) to track RID of last tail record merged into a base page, ensuring faster lookups after a merge
+* Column Indexing
+    * Indexed columns using a B+ plus tree to allow nlog(n) time select on values of the indexed column as well as easy and compact storage.
 ## Milestone 3
+### Goal
+Extend the database to have multi-threaded capabilities and perform multiple transactions concurrently
+### Objectives
+* Transaction Semantics
+* Concurrency Protocol
 
 
 
@@ -34,7 +57,8 @@ Create a single-threaded, in memory database, based on L-Store which has the cap
 
 
 
-Milestone 2 Summary and Writeup
+
+<!-- Milestone 2 Summary and Writeup
 
 Questions:
 	Increasing TID okay?
@@ -79,4 +103,4 @@ Questions:
   	i. key_index : user key : RID
     ii. Index.indices = [key_index, col1_index]
     	I. change key_index to an array
-  c. First as a list, then as a binary tree
+  c. First as a list, then as a binary tree -->

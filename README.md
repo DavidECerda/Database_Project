@@ -48,7 +48,11 @@ Extend the database capabilities by implementing durable disk storage and a buff
 Extend the database to have multi-threaded capabilities and perform multiple transactions concurrently
 ### Objectives
 * Transaction Semantics
-* Concurrency Protocol
+    * Transactions consist of multiple read and write operations and will be atomic i.e. all operations succeed or none do. If operation fails, the transaction will be aborted and rolled back, otherwise the changes are commited and remembered forever
+* Concurrency Control
+    * The database will be able to execute multiple transactions concurrently and adopts a strict two phase locking protocol with no wait property. Transactions will be aborted if they cannot obtain a shared or exclusive lock on a record
+
+<!-- ### Reflection ??? -->
 
 
 
